@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Delete your Maze account</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <main class="card" id="app">
+
+    <!-- Step 1: Login -->
+    <section id="login-step">
+      <h1>Delete your account</h1>
+      <p class="subtext">Log in to confirm it's you, then you'll be able to permanently delete your Maze account and all associated data.</p>
+
+      <form id="login-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" />
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password" />
+
+        <button type="submit" id="login-btn">Log in</button>
+      </form>
+      <p class="error" id="login-error" hidden></p>
+    </section>
+
+    <!-- Step 2: Confirm deletion -->
+    <section id="delete-step" hidden>
+      <h1>Delete your account</h1>
+      <p class="subtext">You're logged in as <strong id="user-email"></strong>.</p>
+      <div class="warning-box">
+        <p><strong>This can't be undone.</strong> Deleting your account permanently removes your profile, saved data, and activity history. It works the same way as deleting your account from within the app.</p>
+      </div>
+
+      <button type="button" id="reveal-confirm-btn" class="danger">Delete my account</button>
+
+      <div id="confirm-box" hidden>
+        <p class="subtext">Type <strong>DELETE</strong> below to confirm.</p>
+        <input type="text" id="confirm-input" autocomplete="off" />
+        <div class="button-row">
+          <button type="button" id="cancel-btn" class="secondary">Cancel</button>
+          <button type="button" id="confirm-delete-btn" class="danger" disabled>Permanently delete</button>
+        </div>
+      </div>
+      <p class="error" id="delete-error" hidden></p>
+    </section>
+
+    <!-- Step 3: Done -->
+    <section id="done-step" hidden>
+      <h1>Account deleted</h1>
+      <p class="subtext">Your Maze account and associated data have been permanently deleted.</p>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>Maze &middot; <a href="mailto:support@mazeproducts.com">Contact support</a></p>
+  </footer>
+
+<script>
+  let authToken = null;
+
+  const loginStep = document.getElementById("login-step");
+  const deleteStep = document.getElementById("delete-step");
+  const doneStep = document.getElementById("done-step");
+
+  const loginForm = document.getElementById("login-form");
+  const loginError = document.getElementById("login-error");
+  const loginBtn = document.getElementById("login-btn");
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginError.hidden = true;
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Logging in…";
+
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        loginError.textContent = data.error || "Login failed.";
+        loginError.hidden = false;
+        return;
+      }
+
+      authToken = data.token;
+      document.getElementById("user-email").textContent = email;
+      loginStep.hidden = true;
+      deleteStep.hidden = false;
+    } catch (err) {
+      loginError.textContent = "Couldn't reach the server. Please try again.";
+      loginError.hidden = false;
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Log in";
+    }
+  });
+
+  const revealConfirmBtn = document.getElementById("reveal-confirm-btn");
+  const confirmBox = document.getElementById("confirm-box");
+  const confirmInput = document.getElementById("confirm-input");
+  const confirmDeleteBtn = document.getElementById("confirm-delete-btn");
+  const cancelBtn = document.getElementById("cancel-btn");
+  const deleteError = document.getElementById("delete-error");
+
+  revealConfirmBtn.addEventListener("click", () => {
+    confirmBox.hidden = false;
+    revealConfirmBtn.hidden = true;
+  });
+
+  cancelBtn.addEventListener("click", () => {
+    confirmBox.hidden = true;
+    revealConfirmBtn.hidden = false;
+    confirmInput.value = "";
+    confirmDeleteBtn.disabled = true;
+  });
+
+  confirmInput.addEventListener("input", () => {
+    confirmDeleteBtn.disabled = confirmInput.value.trim() !== "DELETE";
+  });
+
+  confirmDeleteBtn.addEventListener("click", async () => {
+    deleteError.hidden = true;
+    confirmDeleteBtn.disabled = true;
+    confirmDeleteBtn.textContent = "Deleting…";
+
+    try {
+      const res = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        deleteError.textContent = data.error || "Couldn't delete account.";
+        deleteError.hidden = false;
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.textContent = "Permanently delete";
+        return;
+      }
+
+      deleteStep.hidden = true;
+      doneStep.hidden = false;
+    } catch (err) {
+      deleteError.textContent = "Couldn't reach the server. Please try again.";
+      deleteError.hidden = false;
+      confirmDeleteBtn.disabled = false;
+      confirmDeleteBtn.textContent = "Permanently delete";
+    }
+  });
+</script>
+</body>
+</html>
